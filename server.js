@@ -23,12 +23,14 @@ client.on('error', err => { throw err; });
 const locations = {};
 
 // Route Definitions
-app.get('/location', locationHandler);
-app.get('/restaurants', restaurantHandler);
-app.get('/places', placesHandler);
+app.get('/location', locationHandler);	
+// app.get('/', rootHandler);
+app.get('/yelp', restaurantHandler);
+app.get('/weather', weatherHandler);
 app.use('*', notFoundHandler);
+app.use(errorHandler);
 
-
+// Route Handlers
 function locationHandler(request, response) {
   const city = request.query.city;
   const url = 'https://us1.locationiq.com/v1/search.php';
@@ -38,7 +40,6 @@ function locationHandler(request, response) {
     response.send(locations[city]);
   }
   else {
-
     const queryParams = {
       key: process.env.GEOCODE_API_KEY,
       q: city,
@@ -93,6 +94,12 @@ function restaurantHandler(request, response) {
     });
 
 }
+function notFoundHandler(request, response) {
+  response.status(404).send('Not found');
+}
+function errorHandler(error, request, response, next) {
+  response.status(500).json({ error: true, message: error.message });
+}
 
 function Restaurant(entry) {
   this.restaurant = entry.restaurant.name;
@@ -127,11 +134,28 @@ function placesHandler(request, response) {
       response.status(500).send('sorry, something went wrong');
     });
 }
-
-function Place(data) {
-  this.name = data.text;
-  this.type = data.properties.category;
-  this.address = data.place_name;
+function weatherHandler (request, response) {
+  const latitude =parseFloat(request.query.latitude);
+  const longitude =parseFloat(request.query.longitude);
+  const url = 'https://api.weatherbit.io/v2.0/forecast/daily';
+  superagent.get(url)
+  .query({
+    key: process.env.WEATHER_API_KEY,
+    lat: latitude,
+    lon: longitude
+  })
+  .then(weatherResponse => {
+    const arrayOfWeather = weatherResponse.body.data;
+    const weatherResults = [];
+    arrayOfWeather.forEach(weatherObj => {
+    weatherResults.push(new Weather(weatherObj));
+    });
+    response.send(weatherResults);
+  })
+  .catch(err => {
+    console.log(err);
+    errorHandler(err, request, response);
+});
 }
 function notFoundHandler(request, response) {
   response.status(404).send('huh?');
